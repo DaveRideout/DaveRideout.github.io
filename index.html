@@ -1,7 +1,312 @@
 <!DOCTYPE html>
-<html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title></title>
+    <!-- Include jquery -->
+    <script type="text/javascript" src="../jquery/jquery-1.11.3.min.js"></script>
+    <script type="text/javascript" src="../jquery/jquery-ui-1.10.4/jquery-ui-1.10.4/ui/jquery-ui.js"></script>
+
+    <!-- Include ArcGIS API and stylesheets -->
+    <script src="https://js.arcgis.com/4.3/"></script>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.3/esri/css/main.css">
+
+    <style>
+        html,
+        body,
+        #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+    </style>
+
+    <script>
+        window.myGlobalVarTest = "Okee dokee"
+        window.TruckLocalTime = new Date(2001, 1, 1, 12, 0, 0, 0);
+        window.CurrentDateTime = new Date();
+        window.TruckLastLatitude = 47.668374;
+        window.TruckLastLongitude = -117.433039;
+        var request = $.ajax(
+        {
+            url: "https://reportgen2.skip-line.com/trucks/location/118/",
+            type: "GET",
+            statusCode: {
+                200: function (responseText) // Success
+                {
+                    var response = JSON.parse(responseText);
+                    window.TruckLocalTime = new Date(response.datetime);
+                    window.TruckLastLatitude = response.position.lat;
+                    window.TruckLastLongitude = response.position.lon;
+                },
+                204: function () { }, // No position info
+                401: function () { }, // Truck position info is private
+                404: function () { } // Truck does not exist
+            }
+        });
+    </script>
+
+    <script>
+        //var MyPrimaryLayer_MapServicePointer = "http://igis.spokanecounty.org/arcgis/rest/services/PublicWorks/PublicWorksQueriesPolygons/MapServer/18";
+        //var MyPrimaryLayer_Title = "County Property";
+        var County_MapServicePointer = "http://igis.spokanecounty.org/arcgis/rest/services/PublicWorks/PublicWorksQueriesPolygons/MapServer/13";
+        var Cities_MapServicePointer = "http://igis.spokanecounty.org/arcgis/rest/services/PublicWorks/PublicWorksQueriesPolygons/MapServer/83";
+
+        require([
+           "esri/Map",
+           "esri/layers/FeatureLayer",
+           "esri/renderers/SimpleRenderer",
+           "esri/symbols/SimpleFillSymbol",
+           "esri/views/MapView",
+           "esri/Graphic",
+           "esri/geometry/Point",
+           "esri/symbols/SimpleMarkerSymbol",
+           "esri/symbols/TextSymbol",
+           "esri/widgets/BasemapToggle",
+           "esri/widgets/Home",
+           "esri/widgets/Legend",
+           "dojo/domReady!"
+        ], function (
+            Map,
+            FeatureLayer,
+            SimpleRenderer,
+            SimpleFillSymbol,
+            MapView,
+            Graphic,
+            Point,
+            SimpleMarkerSymbol,
+            TextSymbol,
+            BasemapToggle,
+            Home,
+            Legend) {
+
+            var thisMap = new Map({
+                basemap: "streets",
+                ground: "world-elevation"
+            });
+
+            var thisView = new MapView({
+                container: "viewDiv",
+                map: thisMap,
+                //below items were replaced by 'extent'
+                //scale: 50000000,          // Sets the initial scale to 1:50,000,000
+                //center: [-101.17, 21.78]  // Sets the center point of view with lon/lat
+                extent: { // autocasts as new Extent()
+                    xmin: -117.83,
+                    ymin: 47.23,
+                    xmax: -117.03,
+                    ymax: 48.055,
+                }
+            });
+
+            //var FLmyPrimaryLayer = new FeatureLayer({
+            //    url: MyPrimaryLayer_MapServicePointer,
+            //    outFields: ["*"],  // necessary for using field names in PopUpTemplate!
+            //    //popupTemplate: popupMyPrimaryLayer
+            //});
+
+            var rendererCounty = new SimpleRenderer({
+                symbol: new SimpleFillSymbol({
+                    color: [255, 255, 255, 0.05],  //should be pretty transparent
+                    outline: {
+                        color: [190, 190, 190, 1],
+                        width: 3.5
+                    }
+                })
+            });
+
+            var FLcountyboundary = new FeatureLayer({
+                url: County_MapServicePointer,
+                renderer: rendererCounty
+            });
+
+            var rendererCities = new SimpleRenderer({
+                symbol: new SimpleFillSymbol({
+                    color: [0, 255, 0, 0.1],
+                    outline: {
+                        color: [128, 128, 128],
+                        width: 1.5
+                    }
+                })
+            });
+
+            var FLcities = new FeatureLayer({
+                url: Cities_MapServicePointer,
+                renderer: rendererCities
+            });
+
+            // experiencing difficulties that seem to be related to draw order
+            // sometimes the Flcountyboundary or FLcities must obscure the FLmyPrimaryLayer
+            //thisMap.addMany([FLcountyboundary, FLcities, FLmyPrimaryLayer]);
+            //thisMap.add(FLmyPrimaryLayer);
+            thisMap.add(FLcountyboundary);
+            thisMap.add(FLcities);
+
+            //Basemap Toggle widget
+            var StreetsHybrid_ToggleWidget = new BasemapToggle({
+                view: thisView, // view that provides access to the map's 'topo' basemap
+                nextBasemap: "hybrid" // allows for toggling to the 'satellite' basemap
+            });
+            //StreetsHybrid_ToggleWidget.startup();  // Widget.startup() is deprecated and no longer needed
+
+            //Home Button Widget
+            var HomeButtonWidget = new Home({
+                view: thisView
+            });
+            //HomeButtonWidget.startup();  // Widget.startup() is deprecated and no longer needed
+
+            //Legend Widget
+            //var MyPrimaryLayer_LegendWidget = new Legend({
+            //    view: thisView,
+            //    layerInfos: [{
+            //        layer: FLmyPrimaryLayer,
+            //        title: MyPrimaryLayer_Title
+            //    }]
+            //});
+
+            thisView.ui.add(StreetsHybrid_ToggleWidget, "bottom-right");
+            thisView.ui.add(HomeButtonWidget, "top-left");
+            //thisView.ui.add(MyPrimaryLayer_LegendWidget, "top-right");
+
+            //alert(window.myGlobalVarTest + "\n" + window.TruckLocalTime + "\n" + window.TruckLastLatitude + "\n" + window.TruckLastLongitude + "\n" + window.CurrentDateTime);
+
+            var millisecondsSinceLastReport = window.CurrentDateTime - window.TruckLocalTime;
+            if (millisecondsSinceLastReport < 120000) {
+                var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 1000) + " seconds ago";
+            } else {
+                if (millisecondsSinceLastReport < 7200000) {
+                    var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 60000) + " minutes ago";
+                } else {
+                    var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 3600000) + " hours ago";
+                }
+            }
+
+
+            // First create a point geometry (this is the location of the Paint Truck)
+            var pointTruck = new Point({
+                longitude: window.TruckLastLongitude,
+                latitude: window.TruckLastLatitude
+            });
+            // Create a symbol for drawing the point
+            var markerSymbol = new SimpleMarkerSymbol({
+                color: [226, 119, 40],
+                outline: { // autocasts as new SimpleLineSymbol()
+                    color: [255, 255, 255],
+                    width: 2
+                }
+            });
+            // Create a graphic and add the geometry and symbol to it
+            var pointTruckGraphic = new Graphic({
+                geometry: pointTruck,
+                symbol: markerSymbol
+            });
+            // Add the graphics to the view's graphics layer
+            thisView.graphics.add(pointTruckGraphic);
+
+            var textTruckSymbol = new TextSymbol({
+                //color: "white",
+                color: [226, 119, 40],
+                haloColor: "black",
+                haloSize: "1px",
+                //text: window.TruckLocalTime,
+                //text: timeSinceLastReport,
+                text: displayTimeSinceLastReport,
+                xoffset: 0,
+                yoffset: 10,
+                font: {  // autocast as esri/symbols/Font
+                    size: 12,
+                    family: "sans-serif",
+                    weight: "bolder"
+                }
+            });
+
+            var pointTruckText = new Graphic({
+                geometry: pointTruck,
+                symbol:textTruckSymbol
+            });
+
+            thisView.graphics.add(pointTruckText);
+            thisView.zoom = 14;
+            thisView.center = pointTruck;
+
+            // End of basic Map/View creation code
+        });
+
+        //function getTruckPosition() {
+        //    //var TruckDateTime = new Date(2001, 1, 1, 12, 0, 0, 0);
+        //    //var TruckLatitude = 47.669087;
+        //    //var TruckLongitude = -117.432955;
+        //    var request = $.ajax(
+        //    {
+        //        url: "https://reportgen2.skip-line.com/trucks/location/118/",
+        //        type: "GET",
+        //        statusCode: {
+        //            200: function (responseText) // Success
+        //            {
+        //                var response = JSON.parse(responseText);
+        //                //TruckDateTime = response.datetime;
+        //                //TruckLatitude = response.position.lat;
+        //                //TruckLongitude = response.position.lon;
+        //                var LocalTime = new Date(response.datetime);
+        //                //alert("in getTruckPosition: " + response.datetime + ", " + response.position.lat + ", " + response.position.lon);
+        //                //return response.datetime + ";" + response.position.lat + ";" + response.position.lon;
+        //                var refTruckDatetime = $('#TruckDatetime');
+        //                //refTruckDatetime.empty().append("Last GPS Report: " + LocalTime);
+        //                refTruckDatetime.empty().append(LocalTime);
+        //                $(refTruckDatetime).trigger('create');
+        //                var refTruckLatitude = $('#TruckLatitude');
+        //                refTruckLatitude.empty().append(response.position.lat);
+        //                $(refTruckLatitude).trigger('create');
+        //                var refTruckLongitude = $('#TruckLongitude');
+        //                refTruckLongitude.empty().append(response.position.lon);
+        //                $(refTruckLongitude).trigger('create');
+        //            },
+        //            204: function (){}, // No position info
+        //            401: function (){}, // Truck position info is private
+        //            404: function (){} // Truck does not exist
+        //        }
+        //    });
+        //}
+
+        function displayTruckPosition() {
+            var TruckData = getTruckPosition();
+            //alert("TruckData: " + TruckData);
+            //var TruckDataParsed = TruckData.split(";");
+
+            //var LocalTime = new Date(TruckDataParsed[0]);
+            ////alert("Local Time: " + LocalTime);
+
+            //var refTruckDatetime = $('#TruckDatetime');
+            //refTruckDatetime.empty().append(LocalTime);
+            //$(refTruckDatetime).trigger('create');
+        }
+
+        //******************************************************************
+        // Do something when an the TruckLongitude is changed
+        //******************************************************************
+        //$("#TruckDatetime").on('change', function () {
+        //    alert("longitude changed!");
+        //});
+
+        //$("#TruckDatetime").change(function () {
+        //    alert("now it was changed");
+        //});
+
+        //$("#viewDiv").on("click", function () {
+        //    alert("The TruckDatetime was clicked");
+        //});
+
+    </script>
+
+</head>
+
+<!--<body onload="displayTruckPosition()">-->
 <body>
-<h1>Hello World</h1>
-<p>I'm hosted with GitHub Pages.</p>
-</body>
+        <!--<div id="TruckDatetime">Locating Paint Truck</div>-->
+        <!--<div id="TruckLatitude"></div>-->
+        <!--<div id="TruckLongitude"></div>-->
+        <div id="viewDiv">
+        </div>
+    </body>
+
 </html>
