@@ -12,13 +12,30 @@
              padding: 0;
          }
         /* Always set the map height explicitly to define the size of the div element that contains the map. */
-        #map {
+        #divGoogleMap {
             height: 85%;
         }
         #nav {
             height: 15%;
         }
 
+        .buttonPerformLocate {
+            height:100%;
+            width:33%;
+            float:right;
+        }
+        .buttonLargeGreen {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 15px 32px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+        }
     </style>
     
     <!-- my (dmrideout@aol.com) Google Maps JavaScript API key is   AIzaSyD7qYfVHEqKfGlTSQ62SrFQlSM5J9TYPa4       -->
@@ -27,23 +44,80 @@
 
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyD7qYfVHEqKfGlTSQ62SrFQlSM5J9TYPa4&callback=initMap"
             async defer></script>
+
     <script>
-        var map;
+        var mapVariable;
+
         function initMap() {
-            map = new google.maps.Map(document.getElementById('map'), {
+            mapVariable = new google.maps.Map(document.getElementById('divGoogleMap'), {
                 center: { lat: 47.6588, lng: -117.4260 },
                 zoom: 12
             });
         }
-        function performLocate() {
-            alert("in performLocate");
+
+        function showTruck(TruckTime, TruckLat, TruckLon)
+        {
+            var truckLatLong = new google.maps.LatLng(TruckLat, TruckLon);
+            var CurrentDateTime = new Date();
+            console.log(CurrentDateTime);
+            console.log(TruckTime);
+            //check time since last report
+            var millisecondsSinceLastReport = CurrentDateTime - TruckTime;
+            if (millisecondsSinceLastReport < 120000) {
+                var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 1000) + " seconds ago";
+            } else {
+                if (millisecondsSinceLastReport < 7200000) {
+                    var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 60000) + " minutes ago";
+                } else {
+                    var displayTimeSinceLastReport = parseInt(millisecondsSinceLastReport / 3600000) + " hours ago";
+                }
+            }
+
+            mapVariable = new google.maps.Map(document.getElementById('divGoogleMap'),
+                {
+                    zoom: 15,
+                    center: truckLatLong,
+                    mapTypeId: google.maps.MapTypeId.ROADMAP
+                });
+            var truckMarker = new google.maps.Marker(
+                {
+                    position: truckLatLong,
+                    map: mapVariable,
+                    label: displayTimeSinceLastReport,
+                    title: 'Paint Truck'
+                });
         }
+
+        function performLocate() {
+            var xmlhttpTruck = new XMLHttpRequest();
+            xmlhttpTruck.onreadystatechange = function () {
+                if (xmlhttpTruck.readyState == XMLHttpRequest.DONE)
+                {
+                    switch (xmlhttpTruck.status)
+                    {
+                        case 200: //Success
+                            var response = JSON.parse(xmlhttpTruck.responseText);
+                            var TruckLocalTime = new Date(response.datetime);
+                            showTruck(TruckLocalTime, response.position.lat, response.position.lon);
+                            break;
+                        case 204: //No position info
+                        case 401: //Truck position is private
+                        case 404: //Truck does not exist
+                            // Did not get valid position.  Do something.
+                            break;
+                    }
+                }
+            };
+            xmlhttpTruck.open("GET", "https://reportgen2.skip-line.com/trucks/location/118/", true);
+            xmlhttpTruck.send();
+        }
+
     </script>
 </head>
 <body>
     <div id="nav">
-        <button id="locateSelectedVehicle" onclick="performLocate()">Default button</button>
+        <button id="locateSelectedVehicle" onclick="performLocate()" class="buttonPerformLocate">Locate Striper</button>
     </div>
-    <div id="map"></div>
+    <div id="divGoogleMap"></div>
 </body>
 </html>
