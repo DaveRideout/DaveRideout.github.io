@@ -137,6 +137,7 @@
             //alert(window.myGlobalVarTest + "\n" + window.TruckLocalTime + "\n" + window.TruckLastLatitude + "\n" + window.TruckLastLongitude + "\n" + window.CurrentDateTime);
 
             $("#btnTest").click(function () {
+                alert("Button Clicked!");
                 getPaintTruckPosition();
                 //check time since last report
                     var millisecondsSinceLastReport = window.CurrentDateTime - window.TruckLocalTime;
