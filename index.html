@@ -35,10 +35,15 @@
                 zoom: 12
             });
         }
+        function performLocate() {
+            alert("in performLocate");
+        }
     </script>
 </head>
 <body>
-    <div id="nav"></div>
+    <div id="nav">
+        <button id="locateSelectedVehicle" onclick="performLocate()">Default button</button>
+    </div>
     <div id="map"></div>
 </body>
 </html>
